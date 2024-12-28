@@ -40,9 +40,20 @@
           </el-select>
         </div>
       </div>
-      <el-button type="primary" @click="handleAdd" class="add-button">
-        <el-icon><Plus /></el-icon>添加用户
-      </el-button>
+      <div class="header-right">
+        <el-button 
+          type="danger" 
+          @click="handleBatchDelete" 
+          :disabled="!selectedUsers.length"
+          class="batch-delete-button"
+        >
+          <el-icon><Delete /></el-icon>
+          批量删除
+        </el-button>
+        <el-button type="primary" @click="handleAdd" class="add-button">
+          <el-icon><Plus /></el-icon>添加用户
+        </el-button>
+      </div>
     </div>
 
     <el-card class="users-table" :body-style="{ padding: '0' }">
@@ -52,7 +63,13 @@
         :stripe="true"
         :border="true"
         v-loading="loading"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column
+          type="selection"
+          width="55"
+          align="center"
+        />
         <el-table-column prop="user_id" label="ID" width="80" align="center" />
         <el-table-column prop="profile_picture" label="头像" width="100" align="center">
           <template #default="{ row }">
@@ -178,7 +195,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { Edit, Delete, Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAllUsers } from '@/api/user'
+import { getAllUsers, deleteUsers } from '@/api/user'
 
 const statusOptions = [
   { label: '正常', value: '1' },
@@ -299,9 +316,20 @@ const handleDelete = (row) => {
       cancelButtonText: '取消',
       type: 'warning'
     }
-  ).then(() => {
-    // TODO: 调用删除API
-    ElMessage.success('删除成功')
+  ).then(async () => {
+    try {
+      const response = await deleteUsers([row.user_id])
+      
+      if (response.code === 1) {
+        ElMessage.success('删除成功')
+        fetchUsers()
+      } else {
+        ElMessage.error(response.msg || '删除失败')
+      }
+    } catch (error) {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
+    }
   })
 }
 
@@ -379,6 +407,48 @@ const tableData = computed(() => {
     update_time: formatDateTime(user.update_time)
   }))
 })
+
+// 添加选中用户数组
+const selectedUsers = ref([])
+
+// 处理表格选择变化
+const handleSelectionChange = (selection) => {
+  selectedUsers.value = selection
+}
+
+// 添加批量删除方法
+const handleBatchDelete = () => {
+  if (selectedUsers.value.length === 0) {
+    ElMessage.warning('请选择要删除的用户')
+    return
+  }
+
+  ElMessageBox.confirm(
+    `确定要删除选中的 ${selectedUsers.value.length} 个用户吗？`,
+    '警告',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      const ids = selectedUsers.value.map(user => user.user_id)
+      const response = await deleteUsers(ids)
+      
+      if (response.code === 1) {
+        ElMessage.success('批量删除成功')
+        selectedUsers.value = [] // 清空选中
+        fetchUsers() // 刷新用户列表
+      } else {
+        ElMessage.error(response.msg || '批量删除失败')
+      }
+    } catch (error) {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败')
+    }
+  })
+}
 </script>
 
 <style lang="scss" scoped>
@@ -412,6 +482,17 @@ const tableData = computed(() => {
         .role-filter,
         .status-filter {
           width: 160px;
+        }
+      }
+    }
+
+    .header-right {
+      display: flex;
+      gap: 16px;
+      
+      .batch-delete-button {
+        .el-icon {
+          margin-right: 8px;
         }
       }
     }

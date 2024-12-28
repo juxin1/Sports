@@ -57,4 +57,20 @@ export const login = (data) => {
       password: data.password
     }
   })
+}
+
+// 修改删除用户方法
+export const deleteUsers = (ids) => {
+  // 直接将数组转换为逗号分隔的字符串
+  const idsString = Array.isArray(ids) ? ids.join(',') : ids;
+  
+  return request({
+    url: '',  // 使用空字符串，因为我们要访问根路径
+    method: 'delete',
+    params: {
+      ids: idsString  // 直接传递逗号分隔的字符串
+    }
+  }).then(response => {
+    return response.data
+  })
 } 

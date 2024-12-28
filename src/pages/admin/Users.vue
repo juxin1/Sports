@@ -253,7 +253,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { Edit, Delete, Plus, View, Hide } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAllUsers, deleteUsers, updateUser } from '@/api/user'
+import { getAllUsers, deleteUsers, updateUser, register } from '@/api/user'
 
 const statusOptions = [
   { label: '正常', value: '1' },
@@ -285,8 +285,8 @@ const userForm = ref({
   password: '',
   phone: '',
   full_name: '',
-  role: '0',
-  status: '1'
+  role: roleOptions[0].value,    // 默认显示第一个选项：普通用户
+  status: statusOptions[0].value  // 默认显示第一个选项：正常
 })
 
 const rules = {
@@ -368,8 +368,12 @@ const handleAdd = () => {
     username: '',
     email: '',
     password: '',
-    role: 'user'
+    phone: '',
+    full_name: '',
+    role: roleOptions[0].value,    // 默认显示第一个选项：普通用户
+    status: statusOptions[0].value  // 默认显示第一个选项：正常
   }
+  showPassword.value = false
   dialogVisible.value = true
 }
 
@@ -457,9 +461,26 @@ const handleSubmit = async () => {
             ElMessage.error(response.msg || '编辑失败')
           }
         } else {
-          // TODO: 处理添加用户的逻辑
-          ElMessage.success('添加成功')
-          dialogVisible.value = false
+          // 添加用户
+          const registerData = {
+            username: userForm.value.username,
+            email: userForm.value.email,
+            password: userForm.value.password,
+            phone: userForm.value.phone,
+            full_name: userForm.value.full_name,
+            role: parseInt(userForm.value.role),
+            status: parseInt(userForm.value.status)
+          }
+
+          const response = await register(registerData)
+          
+          if (response.code === 1) {
+            ElMessage.success('添加成功')
+            dialogVisible.value = false
+            fetchUsers() // 刷新用户列表
+          } else {
+            ElMessage.error(response.msg || '添加失败')
+          }
         }
       }
     })

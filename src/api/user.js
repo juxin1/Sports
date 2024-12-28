@@ -84,4 +84,15 @@ export const updateUser = (userId, userData) => {
   }).then(response => {
     return response.data
   })
+}
+
+// 添加用户注册方法
+export const register = (userData) => {
+  return request({
+    url: '/register',
+    method: 'post',
+    data: userData
+  }).then(response => {
+    return response.data
+  })
 } 

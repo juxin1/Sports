@@ -73,4 +73,15 @@ export const deleteUsers = (ids) => {
   }).then(response => {
     return response.data
   })
+}
+
+// 添加更新用户方法
+export const updateUser = (userId, userData) => {
+  return request({
+    url: `/${userId}`,
+    method: 'put',
+    data: userData
+  }).then(response => {
+    return response.data
+  })
 } 

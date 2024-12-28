@@ -18,16 +18,20 @@
           />
           <el-select 
             v-model="roleFilter" 
-            placeholder="用户类型" 
+            placeholder="角色" 
             class="role-filter"
             clearable
           >
-            <el-option label="普通用户" value="user" />
-            <el-option label="管理员" value="admin" />
+            <el-option 
+              v-for="option in roleOptions" 
+              :key="option.value" 
+              :label="option.label" 
+              :value="option.value" 
+            />
           </el-select>
           <el-select 
             v-model="statusFilter" 
-            placeholder="用户状态" 
+            placeholder="状态" 
             class="status-filter"
             clearable
           >
@@ -86,6 +90,17 @@
         <el-table-column prop="email" label="邮箱" min-width="180" />
         <el-table-column prop="phone" label="电话" min-width="120" />
         <el-table-column prop="full_name" label="姓名" min-width="120" />
+        <el-table-column prop="role" label="角色" width="120" align="center">
+          <template #default="{ row }">
+            <el-tag
+              :type="getRoleTag(row.role).type"
+              effect="light"
+              size="small"
+            >
+              {{ getRoleTag(row.role).label }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="120" align="center">
           <template #default="{ row }">
             <el-tag
@@ -152,7 +167,7 @@
         ref="formRef"
         :model="userForm"
         :rules="rules"
-        label-width="80px"
+        label-width="100px"
         label-position="right"
         class="user-form"
       >
@@ -162,24 +177,67 @@
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="userForm.email" placeholder="请输入邮箱" />
         </el-form-item>
-        <el-form-item 
-          label="密码" 
-          prop="password"
-          v-if="dialogType === 'add' || showPasswordField"
-        >
-          <el-input 
-            v-model="userForm.password" 
-            type="password" 
-            placeholder="请输入密码"
-            show-password
-          />
+        <el-form-item label="电话" prop="phone">
+          <el-input v-model="userForm.phone" placeholder="请输入电话号码" />
+        </el-form-item>
+        <el-form-item label="姓名" prop="full_name">
+          <el-input v-model="userForm.full_name" placeholder="请输入姓名" />
         </el-form-item>
         <el-form-item label="角色" prop="role">
           <el-select v-model="userForm.role" style="width: 100%">
-            <el-option label="管理员" value="admin" />
-            <el-option label="普通用户" value="user" />
+            <el-option 
+              v-for="option in roleOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
           </el-select>
         </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="userForm.status" style="width: 100%">
+            <el-option 
+              v-for="option in statusOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="密码" prop="password">
+          <div class="password-field">
+            <el-input
+              v-model="userForm.password"
+              :type="showPassword ? 'text' : 'password'"
+              placeholder="请输入密码"
+            >
+              <template #append>
+                <el-icon
+                  class="password-toggle"
+                  @click="showPassword = !showPassword"
+                >
+                  <View v-if="showPassword" />
+                  <Hide v-else />
+                </el-icon>
+              </template>
+            </el-input>
+          </div>
+        </el-form-item>
+        <template v-if="dialogType === 'edit'">
+          <el-form-item label="创建时间">
+            <el-input
+              v-model="userForm.create_time"
+              disabled
+              class="time-input"
+            />
+          </el-form-item>
+          <el-form-item label="修改时间">
+            <el-input
+              v-model="userForm.update_time"
+              disabled
+              class="time-input"
+            />
+          </el-form-item>
+        </template>
       </el-form>
       <template #footer>
         <div class="dialog-footer">
@@ -193,9 +251,9 @@
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
-import { Edit, Delete, Plus } from '@element-plus/icons-vue'
+import { Edit, Delete, Plus, View, Hide } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAllUsers, deleteUsers } from '@/api/user'
+import { getAllUsers, deleteUsers, updateUser } from '@/api/user'
 
 const statusOptions = [
   { label: '正常', value: '1' },
@@ -203,9 +261,15 @@ const statusOptions = [
   { label: '已封禁', value: '0' }
 ]
 
+const roleOptions = [
+  { label: '普通用户', value: '0' },
+  { label: '会员', value: '1' },
+  { label: '教练', value: '2' }
+]
+
 const loading = ref(false)
 const searchQuery = ref('')
-const roleFilter = ref('user') // 默认显示普通用户
+const roleFilter = ref('') // 默认不筛选角色，显示所有用户
 const statusFilter = ref('') // 默认不筛选状态，显示所有用户
 const currentPage = ref(1)
 const pageSize = ref(10)
@@ -213,7 +277,7 @@ const total = ref(0)
 const dialogVisible = ref(false)
 const dialogType = ref('add')
 const formRef = ref(null)
-const showPasswordField = ref(false)
+const showPassword = ref(false)
 
 const userForm = ref({
   username: '',
@@ -221,8 +285,8 @@ const userForm = ref({
   password: '',
   phone: '',
   full_name: '',
-  profile_picture: '',
-  status: '1' // 修改为字符串 '1'
+  role: '0',
+  status: '1'
 })
 
 const rules = {
@@ -234,12 +298,21 @@ const rules = {
     { required: true, message: '请输入邮箱地址', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
   ],
-  password: [
-    { required: true, message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '长度在 6 到 20 个字符', trigger: 'blur' }
-  ],
   phone: [
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
+  ],
+  full_name: [
+    { required: true, message: '请输入姓名', trigger: 'blur' }
+  ],
+  role: [
+    { required: true, message: '请选择角色', trigger: 'change' }
+  ],
+  status: [
+    { required: true, message: '请选择状态', trigger: 'change' }
+  ],
+  password: [
+    { required: dialogType.value === 'add', message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '长度在 6 到 20 个字符', trigger: 'blur' }
   ]
 }
 
@@ -252,19 +325,18 @@ const fetchUsers = async () => {
       page: currentPage.value,
       size: pageSize.value,
       name: searchQuery.value,
-      status: statusFilter.value || '' // 如果没有选择状态，传空字符串查询所有
+      status: statusFilter.value || '',
+      role: roleFilter.value || ''
     }
 
     const result = await getAllUsers(params)
     console.log('API Response:', result)
     
     if (result.code === 1) {
-      // 根据状态筛选数据
       users.value = result.data.filter(user => {
-        // 如果没有选择状态，显示所有用户
-        if (!statusFilter.value) return true
-        // 否则根据选择的状态筛选
-        return user.status.toString() === statusFilter.value
+        const matchStatus = !statusFilter.value || user.status.toString() === statusFilter.value
+        const matchRole = !roleFilter.value || user.role.toString() === roleFilter.value
+        return matchStatus && matchRole
       })
       total.value = users.value.length
       
@@ -280,7 +352,7 @@ const fetchUsers = async () => {
   }
 }
 
-watch([searchQuery, statusFilter], () => {
+watch([searchQuery, statusFilter, roleFilter], () => {
   try {
     currentPage.value = 1
     fetchUsers()
@@ -303,7 +375,20 @@ const handleAdd = () => {
 
 const handleEdit = (row) => {
   dialogType.value = 'edit'
-  userForm.value = { ...row }
+  showPassword.value = false // 重置密码显示状态
+  userForm.value = {
+    user_id: row.user_id,
+    username: row.username,
+    email: row.email,
+    phone: row.phone,
+    full_name: row.full_name,
+    role: row.role.toString(),
+    status: row.status.toString(),
+    profile_picture: row.profile_picture,
+    password: row.password, // 添加密码字段
+    create_time: formatDateTime(row.create_time),
+    update_time: formatDateTime(row.update_time)
+  }
   dialogVisible.value = true
 }
 
@@ -346,13 +431,42 @@ const handleStatusChange = async (row) => {
 const handleSubmit = async () => {
   if (!formRef.value) return
   
-  await formRef.value.validate((valid) => {
-    if (valid) {
-      // TODO: 调用添加/编辑API
-      ElMessage.success(dialogType.value === 'add' ? '添加成功' : '编辑成功')
-      dialogVisible.value = false
-    }
-  })
+  try {
+    await formRef.value.validate(async (valid) => {
+      if (valid) {
+        if (dialogType.value === 'edit') {
+          // 构造更新数据
+          const updateData = {
+            user_id: userForm.value.user_id,
+            username: userForm.value.username,
+            email: userForm.value.email,
+            phone: userForm.value.phone,
+            full_name: userForm.value.full_name,
+            role: userForm.value.role,
+            status: userForm.value.status,
+            password: userForm.value.password // 如果有修改密码的话
+          }
+
+          const response = await updateUser(userForm.value.user_id, updateData)
+          
+          if (response.code === 1) {
+            ElMessage.success('编辑成功')
+            dialogVisible.value = false
+            fetchUsers() // 刷新用户列表
+          } else {
+            ElMessage.error(response.msg || '编辑失败')
+          }
+        } else {
+          // TODO: 处理添加用户的逻辑
+          ElMessage.success('添加成功')
+          dialogVisible.value = false
+        }
+      }
+    })
+  } catch (error) {
+    console.error('提交失败:', error)
+    ElMessage.error('提交失败')
+  }
 }
 
 const handleSizeChange = (val) => {
@@ -400,12 +514,20 @@ const formatDateTime = (dateTimeStr) => {
 const tableData = computed(() => {
   if (!users.value) return []
   
-  return users.value.map(user => ({
-    ...user,
-    status: user.status.toString(), // 确保状态值为字符串
-    create_time: formatDateTime(user.create_time),
-    update_time: formatDateTime(user.update_time)
-  }))
+  // 计算当前页的数据范围
+  const startIndex = (currentPage.value - 1) * pageSize.value
+  const endIndex = startIndex + pageSize.value
+  
+  // 对数据进行分页处理
+  return users.value
+    .map(user => ({
+      ...user,
+      status: user.status.toString(),
+      role: user.role.toString(),
+      create_time: formatDateTime(user.create_time),
+      update_time: formatDateTime(user.update_time)
+    }))
+    .slice(startIndex, endIndex) // 只返回当前页的数据
 })
 
 // 添加选中用户数组
@@ -448,6 +570,21 @@ const handleBatchDelete = () => {
       ElMessage.error('批量删除失败')
     }
   })
+}
+
+// 添加角色标签的获取方法
+const getRoleTag = (role) => {
+  const roleStr = role.toString()
+  switch (roleStr) {
+    case '0':
+      return { type: '', label: '普通用户' }
+    case '1':
+      return { type: 'success', label: '会员' }
+    case '2':
+      return { type: 'warning', label: '教练' }
+    default:
+      return { type: 'info', label: '未知' }
+  }
 }
 </script>
 
@@ -578,6 +715,17 @@ const handleBatchDelete = () => {
   .el-form-item {
     margin-bottom: 24px;
   }
+
+  .time-input {
+    :deep(.el-input__wrapper) {
+      background-color: var(--el-fill-color-lighter);
+    }
+    
+    :deep(.el-input__inner) {
+      color: var(--el-text-color-secondary);
+      cursor: not-allowed;
+    }
+  }
 }
 
 .dialog-footer {
@@ -586,5 +734,32 @@ const handleBatchDelete = () => {
   gap: 12px;
   padding-top: 20px;
   border-top: 1px solid var(--el-border-color-lighter);
+}
+
+.el-tag {
+  &.el-tag--success {
+    background-color: var(--el-color-success-light-9);
+    border-color: var(--el-color-success-light-5);
+    color: var(--el-color-success);
+  }
+  
+  &.el-tag--warning {
+    background-color: var(--el-color-warning-light-9);
+    border-color: var(--el-color-warning-light-5);
+    color: var(--el-color-warning);
+  }
+}
+
+.password-field {
+  .password-toggle {
+    cursor: pointer;
+    color: var(--el-text-color-secondary);
+    font-size: 16px;
+    transition: color 0.3s;
+    
+    &:hover {
+      color: var(--el-color-primary);
+    }
+  }
 }
 </style> 

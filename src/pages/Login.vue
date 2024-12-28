@@ -209,7 +209,7 @@ import {
   ArrowLeft
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { login } from '../api/user'
+import { login, register } from '@/api/user'
 import { adminLogin } from '../api/admin'
 
 const router = useRouter()
@@ -339,26 +339,30 @@ const handleRegister = async () => {
 
   loading.value = true
   try {
-    // 这里模拟注册请求
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
     // 构造注册数据
     const registerData = {
       username: registerForm.username,
       full_name: registerForm.full_name,
       email: registerForm.email,
       phone: registerForm.phone,
-      password: registerForm.password // 实际应用中密码应该在后端加密
+      password: registerForm.password,
+      role: 0,  // 默认为普通用户
+      status: 1 // 默认为正常状态
     }
     
-    // 这里应该发送 registerData 到后端API
-    console.log('注册数据：', registerData)
-    
-    ElMessage.success('注册成功，请登录')
-    isLogin.value = true
-    // 自动填充登录表单
-    loginForm.username = registerForm.username
+    // 使用导入的 register 方法
+    const response = await register(registerData)
+
+    if (response.code === 1) {
+      ElMessage.success('注册成功，请登录')
+      isLogin.value = true
+      // 自动填充登录表单
+      loginForm.username = registerForm.username
+    } else {
+      ElMessage.error(response.msg || '注册失败')
+    }
   } catch (error) {
+    console.error('注册失败:', error)
     ElMessage.error('注册失败，请重试')
   } finally {
     loading.value = false

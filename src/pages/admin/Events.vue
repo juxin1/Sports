@@ -109,6 +109,70 @@
         />
       </div>
     </el-card>
+
+    <el-dialog
+      v-model="dialogVisible"
+      :title="dialogType === 'add' ? '添加项目' : '编辑项目'"
+      width="500px"
+      destroy-on-close
+    >
+      <el-form
+        ref="formRef"
+        :model="eventForm"
+        :rules="rules"
+        label-width="100px"
+        label-position="right"
+        class="event-form"
+      >
+        <el-form-item label="项目名称" prop="name">
+          <el-input v-model="eventForm.name" placeholder="请输入项目名称" />
+        </el-form-item>
+        <el-form-item label="项目描述" prop="description">
+          <el-input
+            v-model="eventForm.description"
+            type="textarea"
+            :rows="3"
+            placeholder="请输入项目描述"
+          />
+        </el-form-item>
+        <el-form-item label="价格" prop="price">
+          <el-input-number
+            v-model="eventForm.price"
+            :precision="2"
+            :step="0.1"
+            :min="0"
+            style="width: 100%"
+            placeholder="请输入价格"
+          />
+        </el-form-item>
+        <el-form-item label="时长(分钟)" prop="duration">
+          <el-input-number
+            v-model="eventForm.duration"
+            :precision="0"
+            :step="5"
+            :min="0"
+            style="width: 100%"
+            placeholder="请输入时长"
+          />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-select v-model="eventForm.status" placeholder="请选择状态" style="width: 100%">
+            <el-option
+              v-for="option in statusOptions"
+              :key="option.value"
+              :label="option.label"
+              :value="option.value"
+            />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="dialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="handleSubmit">确定</el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -116,7 +180,7 @@
 import { ref, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Edit, Delete, Plus } from '@element-plus/icons-vue'
-import { getAllEvents, deleteEvents } from '@/api/event'
+import { getAllEvents, deleteEvents, addEvent } from '@/api/event'
 
 // 状态选项
 const statusOptions = [
@@ -133,6 +197,42 @@ const pageSize = ref(10)
 const total = ref(0)
 const tableData = ref([])
 const selectedEvents = ref([])
+
+// 添加对话框显示控制
+const dialogVisible = ref(false)
+const dialogType = ref('add')
+const formRef = ref(null)
+
+// 表单数据
+const eventForm = ref({
+  name: '',
+  description: '',
+  price: 0,
+  duration: 0,
+  status: '1'
+})
+
+// 表单验证规则
+const rules = {
+  name: [
+    { required: true, message: '请输入项目名称', trigger: 'blur' },
+    { min: 2, max: 50, message: '长度在 2 到 50 个字符', trigger: 'blur' }
+  ],
+  description: [
+    { required: true, message: '请输入项目描述', trigger: 'blur' }
+  ],
+  price: [
+    { required: true, message: '请输入价格', trigger: 'blur' },
+    { type: 'number', min: 0, message: '价格必须大于等于0', trigger: 'blur' }
+  ],
+  duration: [
+    { required: true, message: '请输入时长', trigger: 'blur' },
+    { type: 'number', min: 0, message: '时长必须大于等于0', trigger: 'blur' }
+  ],
+  status: [
+    { required: true, message: '请选择状态', trigger: 'change' }
+  ]
+}
 
 // 获取状态标签
 const getStatusTag = (status) => {
@@ -222,6 +322,49 @@ watch([searchQuery, statusFilter], () => {
 onMounted(() => {
   fetchEvents()
 })
+
+// 处理添加按钮点击
+const handleAdd = () => {
+  dialogType.value = 'add'
+  eventForm.value = {
+    name: '',
+    description: '',
+    price: 0,
+    duration: 0,
+    status: '1'
+  }
+  dialogVisible.value = true
+}
+
+// 处理表单提交
+const handleSubmit = async () => {
+  if (!formRef.value) return
+  
+  try {
+    await formRef.value.validate()
+    
+    if (dialogType.value === 'add') {
+      const response = await addEvent({
+        name: eventForm.value.name,
+        description: eventForm.value.description,
+        price: Number(eventForm.value.price),
+        duration: Number(eventForm.value.duration),
+        status: eventForm.value.status
+      })
+      
+      if (response.data.code === 1) {
+        ElMessage.success('添加成功')
+        dialogVisible.value = false
+        fetchEvents() // 刷新列表
+      } else {
+        ElMessage.error(response.data.msg || '添加失败')
+      }
+    }
+  } catch (error) {
+    console.error('表单提交失败:', error)
+    ElMessage.error('表单验证失败，请检查输入')
+  }
+}
 </script>
 
 <style lang="scss" scoped>
@@ -269,6 +412,19 @@ onMounted(() => {
       display: flex;
       justify-content: flex-end;
     }
+  }
+
+  .event-form {
+    .el-input-number {
+      width: 100%;
+    }
+  }
+
+  .dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding-top: 20px;
   }
 }
 </style> 

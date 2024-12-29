@@ -16,6 +16,21 @@ export const getAllEvents = (params) => {
   })
 }
 
+// 添加运动项目
+export const addEvent = (data) => {
+  return request({
+    url: baseURL,
+    method: 'post',
+    data: {
+      name: data.name,
+      description: data.description,
+      price: Number(data.price),
+      duration: Number(data.duration),
+      status: data.status
+    }
+  })
+}
+
 // 更新运动项目
 export const updateEvent = (eventId, data) => {
   return request({
@@ -27,28 +42,12 @@ export const updateEvent = (eventId, data) => {
 
 // 删除运动项目
 export const deleteEvents = (ids) => {
-  // 确保 ids 是数组并转换为字符串
   const idList = Array.isArray(ids) ? ids : [ids]
   return request({
     url: baseURL,
     method: 'delete',
     params: {
       ids: idList.join(',')
-    }
-  })
-}
-
-// 添加创建活动方法
-export const createEvent = (data) => {
-  return request({
-    url: '/services',
-    method: 'post',
-    data: {
-      name: data.name,
-      description: data.description,
-      price: data.price,
-      duration: data.duration,
-      status: data.status.toString()  // 确保状态为字符串
     }
   })
 }

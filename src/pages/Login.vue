@@ -258,34 +258,30 @@ const handleLogin = async () => {
       password: loginForm.password
     }
 
-    console.log('发送登录请求:', {
-      type: loginForm.userType,
-      data: loginData
-    })
+    const { data: response } = await loginApi(loginData)
+    console.log('登录响应:', response)
 
-    const response = await loginApi(loginData)
-    const responseData = response.data
-    console.log('登录响应原始数据:', responseData)
-
-    if (responseData.code === 1) {
-      console.log('登录成功，解析数据:', responseData.data)
-      const { token, user_id, username } = responseData.data
+    if (response.code === 1) {
+      const { token, user_id, username } = response.data
+      console.log('获取到的token:', token)
       
-      // 存储 token 和用户信息
+      // 存储 token 前检查
+      if (!token) {
+        console.error('Token is empty')
+        ElMessage.error('登录失败：未获取到有效token')
+        return
+      }
+
+      // 存储 token
       localStorage.setItem('token', token)
+      console.log('存储的token:', localStorage.getItem('token')) // 验证存储
+      
       localStorage.setItem('user', JSON.stringify({
         user_id,
         username,
         role: loginForm.userType
       }))
-      
-      console.log('存储的token:', token)
-      console.log('存储的用户信息:', {
-        user_id,
-        username,
-        role: loginForm.userType
-      })
-      
+
       ElMessage.success('登录成功')
       
       if (loginForm.userType === 'admin') {
@@ -294,8 +290,7 @@ const handleLogin = async () => {
         router.push('/user/home')
       }
     } else {
-      console.error('登录失败:', responseData.msg)
-      ElMessage.error(responseData.msg || '登录失败')
+      ElMessage.error(response.msg || '登录失败')
     }
   } catch (error) {
     console.error('登录错误:', error)

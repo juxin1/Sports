@@ -62,46 +62,74 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getAllCounts } from '@/api/admin'
+import { User, Calendar, ShoppingCart, Trophy } from '@element-plus/icons-vue'
 
 const timeRange = ref('week')
 
+// 统计数据
 const stats = ref([
   {
     title: '总用户数',
     value: 0,
-    icon: 'User',
+    icon: User,
     color: '#409EFF'
-  },
-  {
-    title: '今日预约',
-    value: 0,
-    icon: 'Calendar',
-    color: '#67C23A'
   },
   {
     title: '总订单数',
     value: 0,
-    icon: 'ShoppingCart',
+    icon: ShoppingCart,
     color: '#E6A23C'
   },
   {
     title: '总活动数',
     value: 0,
-    icon: 'Trophy',
+    icon: Trophy,
     color: '#F56C6C'
+  },
+  {
+    title: '今日预约',
+    value: 0,
+    icon: Calendar,
+    color: '#67C23A'
   }
 ])
 
+// 获取统计数据
 const fetchAllCounts = async () => {
   try {
     const response = await getAllCounts()
     console.log('统计数据响应:', response)
+    
     if (response && response.code === 1) {
       const [userCount, eventCount, orderCount] = response.data
       
-      stats.value[0].value = userCount
-      stats.value[2].value = orderCount
-      stats.value[3].value = eventCount
+      // 直接修改数组中的对象值
+      stats.value = [
+        {
+          title: '总用户数',
+          value: userCount,
+          icon: User,
+          color: '#409EFF'
+        },
+        {
+          title: '总订单数',
+          value: orderCount,
+          icon: ShoppingCart,
+          color: '#E6A23C'
+        },
+        {
+          title: '总活动数',
+          value: eventCount,
+          icon: Trophy,
+          color: '#F56C6C'
+        },
+        {
+          title: '今日预约',
+          value: 0,
+          icon: Calendar,
+          color: '#67C23A'
+        }
+      ]
       
       console.log('更新后的统计数据:', stats.value)
     }

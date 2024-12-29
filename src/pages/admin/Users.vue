@@ -159,7 +159,7 @@
 
     <el-dialog
       v-model="dialogVisible"
-      :title="dialogType === 'add' ? '添加用户' : '编辑用户'"
+      :title="dialogTitle"
       width="500px"
       destroy-on-close
     >
@@ -255,16 +255,15 @@ import { Edit, Delete, Plus, View, Hide } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getAllUsers, deleteUsers, updateUser, register } from '@/api/user'
 
-const statusOptions = [
-  { label: '正常', value: '1' },
-  { label: '未激活', value: '2' },
-  { label: '已封禁', value: '0' }
+const roleOptions = [
+  { value: '0', label: '普通用户' },
+  { value: '1', label: '会员' },
+  { value: '2', label: '教练' }
 ]
 
-const roleOptions = [
-  { label: '普通用户', value: '0' },
-  { label: '会员', value: '1' },
-  { label: '教练', value: '2' }
+const statusOptions = [
+  { value: '1', label: '启用' },
+  { value: '0', label: '禁用' }
 ]
 
 const loading = ref(false)
@@ -298,8 +297,9 @@ const rules = {
     { required: true, message: '请输入邮箱地址', trigger: 'blur' },
     { type: 'email', message: '请输入正确的邮箱地址', trigger: 'blur' }
   ],
-  phone: [
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '长度在 6 到 20 个字符', trigger: 'blur' }
   ],
   full_name: [
     { required: true, message: '请输入姓名', trigger: 'blur' }
@@ -310,217 +310,197 @@ const rules = {
   status: [
     { required: true, message: '请选择状态', trigger: 'change' }
   ],
-  password: [
-    { required: dialogType.value === 'add', message: '请输入密码', trigger: 'blur' },
-    { min: 6, max: 20, message: '长度在 6 到 20 个字符', trigger: 'blur' }
+  phone: [
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
   ]
 }
 
 const users = ref([])
 
+const tableData = ref([])
+
 const fetchUsers = async () => {
+  loading.value = true
   try {
-    loading.value = true
-    const params = {
+    const { data: response } = await getAllUsers({
       page: currentPage.value,
       size: pageSize.value,
-      name: searchQuery.value,
-      status: statusFilter.value || '',
-      role: roleFilter.value || ''
-    }
+      name: searchQuery.value || '',
+      status: statusFilter.value || '1',
+      role: roleFilter.value || '0'
+    })
+    console.log('获取到的原始响应:', response)
 
-    const result = await getAllUsers(params)
-    console.log('API Response:', result)
-    
-    if (result.code === 1) {
-      users.value = result.data.filter(user => {
-        const matchStatus = !statusFilter.value || user.status.toString() === statusFilter.value
-        const matchRole = !roleFilter.value || user.role.toString() === roleFilter.value
-        return matchStatus && matchRole
-      })
-      total.value = users.value.length
-      
-      if (users.value.length === 0) {
-        ElMessage.info('暂无数据')
-      }
+    if (response.code === 1 && response.data) {
+      // 直接使用返回的数据数组
+      tableData.value = response.data
+      total.value = response.data.length
+      console.log('处理后的表格数据:', tableData.value)
+    } else {
+      ElMessage.error(response.msg || '获取用户列表失败')
     }
   } catch (error) {
     console.error('获取用户列表失败:', error)
-    ElMessage.error(error.message || '获取用户列表失败')
+    ElMessage.error('获取用户列表失败')
   } finally {
     loading.value = false
   }
 }
 
-watch([searchQuery, statusFilter, roleFilter], () => {
-  try {
-    currentPage.value = 1
-    fetchUsers()
-  } catch (error) {
-    console.error('Watch error:', error)
-    ElMessage.error('数据刷新失败')
-  }
-}, { deep: true })
-
-const handleAdd = () => {
-  dialogType.value = 'add'
-  userForm.value = {
-    username: '',
-    email: '',
-    password: '',
-    phone: '',
-    full_name: '',
-    role: roleOptions[0].value,    // 默认显示第一个选项：普通用户
-    status: statusOptions[0].value  // 默认显示第一个选项：正常
-  }
-  showPassword.value = false
-  dialogVisible.value = true
-}
-
-const handleEdit = (row) => {
-  dialogType.value = 'edit'
-  showPassword.value = false // 重置密码显示状态
-  userForm.value = {
-    user_id: row.user_id,
-    username: row.username,
-    email: row.email,
-    phone: row.phone,
-    full_name: row.full_name,
-    role: row.role.toString(),
-    status: row.status.toString(),
-    profile_picture: row.profile_picture,
-    password: row.password, // 添加密码字段
-    create_time: formatDateTime(row.create_time),
-    update_time: formatDateTime(row.update_time)
-  }
-  dialogVisible.value = true
-}
-
-const handleDelete = (row) => {
-  ElMessageBox.confirm(
-    `确定要删除用户 ${row.username} 吗？`,
-    '警告',
-    {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning'
-    }
-  ).then(async () => {
-    try {
-      const response = await deleteUsers([row.user_id])
-      
-      if (response.code === 1) {
-        ElMessage.success('删除成功')
-        fetchUsers()
-      } else {
-        ElMessage.error(response.msg || '删除失败')
-      }
-    } catch (error) {
-      console.error('删除失败:', error)
-      ElMessage.error('删除失败')
-    }
-  })
-}
-
-const handleStatusChange = async (row) => {
-  try {
-    // TODO: 调用状态更新API
-    const newStatus = row.status === '1' ? '0' : '1' // 使用字符串比较和赋值
-    ElMessage.success(`状态更新成功：${newStatus === '1' ? '正常' : '已封禁'}`)
-  } catch (error) {
-    ElMessage.error('状态更新失败')
-  }
-}
-
-const handleSubmit = async () => {
-  if (!formRef.value) return
-  
-  try {
-    await formRef.value.validate(async (valid) => {
-      if (valid) {
-        if (dialogType.value === 'edit') {
-          // 构造更新数据
-          const updateData = {
-            user_id: userForm.value.user_id,
-            username: userForm.value.username,
-            email: userForm.value.email,
-            phone: userForm.value.phone,
-            full_name: userForm.value.full_name,
-            role: userForm.value.role,
-            status: userForm.value.status,
-            password: userForm.value.password // 如果有修改密码的话
-          }
-
-          const response = await updateUser(userForm.value.user_id, updateData)
-          
-          if (response.code === 1) {
-            ElMessage.success('编辑成功')
-            dialogVisible.value = false
-            fetchUsers() // 刷新用户列表
-          } else {
-            ElMessage.error(response.msg || '编辑失败')
-          }
-        } else {
-          // 添加用户
-          const registerData = {
-            username: userForm.value.username,
-            email: userForm.value.email,
-            password: userForm.value.password,
-            phone: userForm.value.phone,
-            full_name: userForm.value.full_name,
-            role: parseInt(userForm.value.role),
-            status: parseInt(userForm.value.status)
-          }
-
-          const response = await register(registerData)
-          
-          if (response.code === 1) {
-            ElMessage.success('添加成功')
-            dialogVisible.value = false
-            fetchUsers() // 刷新用户列表
-          } else {
-            ElMessage.error(response.msg || '添加失败')
-          }
-        }
-      }
-    })
-  } catch (error) {
-    console.error('提交失败:', error)
-    ElMessage.error('提交失败')
-  }
-}
-
+// 处理分页大小变化
 const handleSizeChange = (val) => {
   pageSize.value = val
   fetchUsers()
 }
 
+// 处理页码变化
 const handleCurrentChange = (val) => {
   currentPage.value = val
   fetchUsers()
 }
 
+// 修改对话框标题计算属性
+const dialogTitle = computed(() => dialogType.value === 'add' ? '添加用户' : '编辑用户')
+
+// 添加表单变化检测
+const originalForm = ref(null)
+const formChanged = ref(false)
+
+// 修改处理编辑用户方法
+const handleEdit = (row) => {
+  dialogType.value = 'edit'
+  // 复制用户数据到表单，包括原密码
+  const formData = {
+    user_id: row.user_id,
+    username: row.username,
+    email: row.email,
+    phone: row.phone,
+    full_name: row.full_name,
+    role: String(row.role),
+    status: String(row.status),
+    password: row.password, // 保留原密码
+    create_time: formatDateTime(row.create_time),
+    update_time: formatDateTime(row.update_time)
+  }
+  
+  userForm.value = formData
+  // 保存原始表单数据用于比较
+  originalForm.value = { ...formData }
+  formChanged.value = false
+  dialogVisible.value = true
+}
+
+// 监听表单变化
+watch(
+  () => userForm.value,
+  (newVal) => {
+    if (originalForm.value) {
+      // 检查是否有任何字段发生变化
+      formChanged.value = Object.keys(newVal).some(key => {
+        // 忽略时间字段的比较
+        if (key === 'create_time' || key === 'update_time') return false
+        return newVal[key] !== originalForm.value[key]
+      })
+    }
+  },
+  { deep: true }
+)
+
+// 修改表单提交方法
+const handleSubmit = async () => {
+  if (!formRef.value) return
+  
+  if (dialogType.value === 'edit' && !formChanged.value) {
+    dialogVisible.value = false
+    return
+  }
+  
+  try {
+    await formRef.value.validate()
+    
+    if (dialogType.value === 'edit') {
+      // 构造更新数据，包含所有字段的当前值
+      const updateData = {
+        user_id: userForm.value.user_id,
+        username: userForm.value.username,
+        email: userForm.value.email,
+        phone: userForm.value.phone || originalForm.value.phone, // 如果为空则使用原值
+        full_name: userForm.value.full_name,
+        role: userForm.value.role,
+        status: userForm.value.status,
+        password: userForm.value.password || originalForm.value.password // 如果为空则使用原密码
+      }
+
+      // 移除未修改的字段
+      Object.keys(updateData).forEach(key => {
+        // 跳过 user_id，它是必需的
+        if (key === 'user_id') return
+        
+        // 如果值与原值相同，或者新值为空而原值存在，则使用原值
+        if (updateData[key] === originalForm.value[key] || 
+            (!updateData[key] && originalForm.value[key])) {
+          updateData[key] = originalForm.value[key]
+        }
+      })
+
+      console.log('提交的更新数据:', updateData)
+      const response = await updateUser(userForm.value.user_id, updateData)
+      
+      if (response.data.code === 1) {
+        ElMessage.success('修改成功')
+        dialogVisible.value = false
+        fetchUsers() // 刷新用户列表
+      } else {
+        ElMessage.error(response.data.msg || '修改失败')
+      }
+    } else {
+      // 处理添加用户
+      const userData = {
+        username: userForm.value.username,
+        password: userForm.value.password,
+        email: userForm.value.email,
+        phone: userForm.value.phone,
+        full_name: userForm.value.full_name,
+        role: userForm.value.role,
+        status: userForm.value.status
+      }
+
+      const response = await register(userData)
+      
+      if (response.data.code === 1) {
+        ElMessage.success('添加成功')
+        dialogVisible.value = false
+        fetchUsers() // 刷新用户列表
+      } else {
+        ElMessage.error(response.data.msg || '添加失败')
+      }
+    }
+  } catch (error) {
+    console.error('表单提交失败:', error)
+    ElMessage.error('表单验证失败，请检查输入')
+  }
+}
+
+// 监听筛选条件变化
+watch([searchQuery, roleFilter, statusFilter], () => {
+  currentPage.value = 1 // 重置到第一页
+  fetchUsers()
+})
+
+// 页面加载时获取数据
 onMounted(() => {
   fetchUsers()
 })
 
 const getStatusTag = (status) => {
-  const statusStr = status.toString()
-  switch (statusStr) {
-    case '1':
-      return { type: 'success', label: '正常' }
-    case '2':
-      return { type: 'warning', label: '未激活' }
-    case '0':
-      return { type: 'danger', label: '已封禁' }
-    default:
-      return { type: 'info', label: '未知' }
-  }
+  return String(status) === '1' ? 
+    { type: 'success', label: '启用' } : 
+    { type: 'danger', label: '禁用' }
 }
 
-const formatDateTime = (dateTimeStr) => {
-  if (!dateTimeStr) return ''
-  const date = new Date(dateTimeStr)
+const formatDateTime = (dateStr) => {
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
   return date.toLocaleString('zh-CN', {
     year: 'numeric',
     month: '2-digit',
@@ -532,24 +512,23 @@ const formatDateTime = (dateTimeStr) => {
   })
 }
 
-const tableData = computed(() => {
-  if (!users.value) return []
-  
-  // 计算当前页的数据范围
-  const startIndex = (currentPage.value - 1) * pageSize.value
-  const endIndex = startIndex + pageSize.value
-  
-  // 对数据进行分页处理
-  return users.value
-    .map(user => ({
-      ...user,
-      status: user.status.toString(),
-      role: user.role.toString(),
-      create_time: formatDateTime(user.create_time),
-      update_time: formatDateTime(user.update_time)
-    }))
-    .slice(startIndex, endIndex) // 只返回当前页的数据
-})
+const getRoleLabel = (role) => {
+  const roleMap = {
+    '0': '普通用户',
+    '1': '会员',
+    '2': '教练'
+  }
+  return roleMap[String(role)] || '未知'
+}
+
+const getRoleTagType = (role) => {
+  const typeMap = {
+    '0': 'info',
+    '1': 'success',
+    '2': 'warning'
+  }
+  return typeMap[String(role)] || 'info'
+}
 
 // 添加选中用户数组
 const selectedUsers = ref([])
@@ -559,7 +538,38 @@ const handleSelectionChange = (selection) => {
   selectedUsers.value = selection
 }
 
-// 添加批量删除方法
+// 处理单个删除
+const handleDelete = (row) => {
+  ElMessageBox.confirm(
+    `确定要删除用户 "${row.username}" 吗？`,
+    '警告',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      const response = await deleteUsers([row.user_id])
+      
+      if (response.data.code === 1) {
+        ElMessage.success('删除成功')
+        // 如果当前页只有一条数据，且不是第一页，则跳转到上一页
+        if (tableData.value.length === 1 && currentPage.value > 1) {
+          currentPage.value--
+        }
+        fetchUsers() // 刷新用户列表
+      } else {
+        ElMessage.error(response.data.msg || '删除失败')
+      }
+    } catch (error) {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
+    }
+  })
+}
+
+// 处理批量删除
 const handleBatchDelete = () => {
   if (selectedUsers.value.length === 0) {
     ElMessage.warning('请选择要删除的用户')
@@ -576,15 +586,20 @@ const handleBatchDelete = () => {
     }
   ).then(async () => {
     try {
+      // 提取选中用户的ID数组
       const ids = selectedUsers.value.map(user => user.user_id)
       const response = await deleteUsers(ids)
       
-      if (response.code === 1) {
+      if (response.data.code === 1) {
         ElMessage.success('批量删除成功')
         selectedUsers.value = [] // 清空选中
+        // 如果删除后当前页没有数据，且不是第一页，则跳转到上一页
+        if (tableData.value.length === ids.length && currentPage.value > 1) {
+          currentPage.value--
+        }
         fetchUsers() // 刷新用户列表
       } else {
-        ElMessage.error(response.msg || '批量删除失败')
+        ElMessage.error(response.data.msg || '批量删除失败')
       }
     } catch (error) {
       console.error('批量删除失败:', error)
@@ -606,6 +621,25 @@ const getRoleTag = (role) => {
     default:
       return { type: 'info', label: '未知' }
   }
+}
+
+// 添加处理添加用户的方法
+const handleAdd = () => {
+  dialogType.value = 'add'
+  // 重置表单数据
+  userForm.value = {
+    username: '',
+    email: '',
+    password: '',
+    phone: '',
+    full_name: '',
+    role: roleOptions[0].value,    // 默认普通用户
+    status: statusOptions[0].value  // 默认启用
+  }
+  // 清空原始表单数据
+  originalForm.value = null
+  formChanged.value = false
+  dialogVisible.value = true
 }
 </script>
 

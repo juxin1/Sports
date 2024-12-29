@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 const routes = [
   {
@@ -59,17 +60,34 @@ const router = createRouter({
   routes
 })
 
-// 路由守卫
+// 修改路由守卫
 router.beforeEach((to, from, next) => {
-  const user = JSON.parse(localStorage.getItem('user'))
-  
-  if (to.meta.requiresAuth && !user) {
-    next('/login')
-  } else if (to.meta.role && user?.role !== to.meta.role) {
-    next('/login')
-  } else {
+  // 登录页面直接放行
+  if (to.path === '/login') {
     next()
+    return
   }
+
+  const token = localStorage.getItem('token')
+  const user = JSON.parse(localStorage.getItem('user') || '{}')
+
+  // 需要验证的页面
+  if (to.meta.requiresAuth) {
+    if (!token) {
+      ElMessage.error('请先登录')
+      next('/login')
+      return
+    }
+
+    // 验证管理员权限
+    if (to.meta.role === 'admin' && user.role !== 'admin') {
+      ElMessage.error('无权访问管理页面')
+      next('/login')
+      return
+    }
+  }
+
+  next()
 })
 
 export default router 

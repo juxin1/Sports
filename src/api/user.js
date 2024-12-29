@@ -1,74 +1,11 @@
-import axios from 'axios'
-import { ElMessage } from 'element-plus'
-import router from '@/router'
+import request from '@/utils/request'
 
-// 创建axios实例
-const request = axios.create({
-  baseURL: '/users',
-  timeout: 5000,
-  withCredentials: true,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
-// 请求拦截器
-request.interceptors.request.use(
-  config => {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers['token'] = token
-    }
-    return config
-  },
-  error => {
-    return Promise.reject(error)
-  }
-)
-
-// 响应拦截器
-request.interceptors.response.use(
-  response => {
-    return response
-  },
-  error => {
-    if (error.response) {
-      switch (error.response.status) {
-        case 401: // token 过期或无效
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
-          router.push('/login')
-          break
-        case 403: // 权限不足
-          ElMessage.error('权限不足')
-          break
-      }
-    }
-    console.error('请求错误:', error)
-    return Promise.reject(error)
-  }
-)
-
-// 获取所有用户
-export const getAllUsers = (params) => {
-  return request({
-    url: '/all',
-    method: 'get',
-    params: {
-      page: params.page,
-      size: params.size,
-      name: params.name,
-      status: params.status
-    }
-  }).then(response => {
-    return response.data
-  })
-}
+const baseURL = '/users'
 
 // 用户登录
 export const login = (data) => {
   return request({
-    url: '/login',
+    url: `${baseURL}/login`,
     method: 'post',
     data: {
       username: data.username,
@@ -77,41 +14,59 @@ export const login = (data) => {
   })
 }
 
-// 修改删除用户方法
+// 获取所有用户
+export const getAllUsers = (params) => {
+  return request({
+    url: `${baseURL}/all`,
+    method: 'get',
+    params: {
+      page: params.page || 1,
+      size: params.size || 10,
+      name: params.name || '',
+      status: String(params.status || '1'),
+      role: String(params.role || '0')
+    }
+  })
+}
+
+// 删除用户（支持单个和批量删除）
 export const deleteUsers = (ids) => {
-  // 直接将数组转换为逗号分隔的字符串
-  const idsString = Array.isArray(ids) ? ids.join(',') : ids;
+  // 确保 ids 是数组并转换为字符串
+  const idList = Array.isArray(ids) ? ids : [ids]
   
   return request({
-    url: '',  // 使用空字符串，因为我们要访问根路径
+    url: `${baseURL}`,
     method: 'delete',
     params: {
-      ids: idsString  // 直接传递逗号分隔的字符串
+      // 将数组转换为逗号分隔的字符串
+      ids: idList.join(',')
     }
-  }).then(response => {
-    return response.data
   })
 }
 
-// 添加更新用户方法
+// 更新用户
 export const updateUser = (userId, userData) => {
   return request({
-    url: `/${userId}`,
+    url: `${baseURL}/${userId}`,
     method: 'put',
     data: userData
-  }).then(response => {
-    return response.data
   })
 }
 
-// 添加用户注册方法
+// 用户注册
 export const register = (userData) => {
   return request({
-    url: '/register',
+    url: `${baseURL}/register`,
     method: 'post',
-    data: userData
-  }).then(response => {
-    return response.data
+    data: {
+      username: userData.username,
+      password: userData.password,
+      email: userData.email,
+      phone: userData.phone || '',
+      full_name: userData.full_name,
+      role: userData.role,
+      status: userData.status
+    }
   })
 }
 

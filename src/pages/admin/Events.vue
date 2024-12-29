@@ -196,7 +196,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { Edit, Delete, Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAllEvents, updateEvent, deleteEvents } from '@/api/event'
+import { getAllEvents, updateEvent, deleteEvents, createEvent } from '@/api/event'
 
 // 状态选项
 const statusOptions = [
@@ -309,7 +309,7 @@ const handleAdd = () => {
     description: '',
     price: 0,
     duration: 60,
-    status: 1
+    status: '1'
   }
   dialogVisible.value = true
 }
@@ -411,8 +411,16 @@ const handleSubmit = async () => {
             ElMessage.error(response.msg || '编辑失败')
           }
         } else {
-          // TODO: 调用添加API
-          ElMessage.success('添加成功')
+          // 添加活动
+          const response = await createEvent(eventForm.value)
+          
+          if (response.code === 1) {
+            ElMessage.success('添加成功')
+            dialogVisible.value = false
+            fetchEvents() // 刷新列表
+          } else {
+            ElMessage.error(response.msg || '添加失败')
+          }
         }
       }
     })

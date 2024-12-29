@@ -44,4 +44,19 @@ export const deleteEvents = (ids) => {
       indexes: null // 确保数组参数正确序列化
     }
   })
+}
+
+// 添加创建活动方法
+export const createEvent = (data) => {
+  return request({
+    url: '/services',
+    method: 'post',
+    data: {
+      name: data.name,
+      description: data.description,
+      price: data.price,
+      duration: data.duration,
+      status: data.status.toString()  // 确保状态为字符串
+    }
+  })
 } 

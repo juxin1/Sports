@@ -5,8 +5,15 @@
         <h2 class="page-title">订单管理</h2>
         <div class="header-filters">
           <el-input
+            v-model="usernameQuery"
+            placeholder="搜索用户名..."
+            prefix-icon="Search"
+            clearable
+            class="search-input"
+          />
+          <el-input
             v-model="searchQuery"
-            placeholder="搜索订单号..."
+            placeholder="搜索活动名称..."
             prefix-icon="Search"
             clearable
             class="search-input"
@@ -37,12 +44,26 @@
         v-loading="loading"
       >
         <el-table-column prop="order_id" label="订单号" width="100" align="center" />
-        <el-table-column prop="user_id" label="用户ID" width="100" align="center" />
-        <el-table-column prop="sprots_id" label="服务ID" width="100" align="center" />
+        <el-table-column label="用户信息" min-width="180">
+          <template #default="{ row }">
+            <div>
+              <div>{{ row.username }}</div>
+              <div class="text-secondary">(ID: {{ row.user_id }})</div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="活动信息" min-width="180">
+          <template #default="{ row }">
+            <div>
+              <div>{{ row.name }}</div>
+              <div class="text-secondary">(ID: {{ row.sprots_id }})</div>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="quantity" label="数量" width="80" align="center" />
         <el-table-column prop="total_price" label="总价" width="120" align="right">
           <template #default="{ row }">
-            ¥{{ Number(row.total_price).toFixed(2) }}
+            <span class="price">¥{{ Number(row.total_price).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100" align="center">
@@ -55,11 +76,6 @@
         <el-table-column prop="create_time" label="创建时间" width="180" align="center">
           <template #default="{ row }">
             {{ formatDateTime(row.create_time) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="update_time" label="更新时间" width="180" align="center">
-          <template #default="{ row }">
-            {{ formatDateTime(row.update_time) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="150" fixed="right" align="center">
@@ -132,9 +148,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { Edit, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getAllOrders } from '@/api/order'
 
 // 状态选项
 const statusOptions = [
@@ -191,8 +208,7 @@ const tableData = computed(() => {
     .map(order => ({
       ...order,
       total_price: Number(order.total_price),
-      create_time: formatDateTime(order.create_time),
-      update_time: formatDateTime(order.update_time)
+      create_time: formatDateTime(order.create_time)
     }))
     .slice(startIndex, endIndex)
 })
@@ -212,7 +228,64 @@ const formatDateTime = (dateTimeStr) => {
   })
 }
 
-// ... 其他代码与之前类似，需要添加订单相关的 API 调用和数据处理
+// 添加用户名搜索
+const usernameQuery = ref('')
+
+// 修改获取订单列表方法
+const fetchOrders = async () => {
+  try {
+    loading.value = true
+    const params = {
+      page: currentPage.value,
+      size: pageSize.value,
+      username: usernameQuery.value,
+      name: searchQuery.value,
+      status: statusFilter.value
+    }
+
+    console.log('查询参数：', params)
+
+    const result = await getAllOrders(params)
+    
+    if (result.code === 1) {
+      // 直接使用返回的数据数组
+      orders.value = result.data || []
+      total.value = result.data.length || 0
+      
+      if (orders.value.length === 0) {
+        ElMessage.info('暂无数据')
+      }
+    }
+  } catch (error) {
+    console.error('获取订单列表失败:', error)
+    ElMessage.error('获取订单列表失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+// 修改分页处理方法
+const handleSizeChange = (val) => {
+  pageSize.value = val
+  currentPage.value = 1  // 重置到第一页
+  fetchOrders()
+}
+
+const handleCurrentChange = (val) => {
+  currentPage.value = val
+  fetchOrders()
+}
+
+// 添加监听器
+watch([usernameQuery, searchQuery, statusFilter], () => {
+  currentPage.value = 1
+  fetchOrders()
+}, { deep: true })
+
+// 初始化
+onMounted(() => {
+  fetchOrders()
+})
 </script>
 
 <style lang="scss" scoped>
@@ -263,5 +336,16 @@ const formatDateTime = (dateTimeStr) => {
       border-top: 1px solid var(--el-border-color-lighter);
     }
   }
+}
+
+.text-secondary {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  margin-top: 4px;
+}
+
+.price {
+  font-weight: 600;
+  color: var(--el-color-danger);
 }
 </style> 

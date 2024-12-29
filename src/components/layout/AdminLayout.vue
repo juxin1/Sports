@@ -20,13 +20,13 @@
           <el-icon><User /></el-icon>
           <template #title>用户管理</template>
         </el-menu-item>
-        <el-menu-item index="/admin/facilities">
-          <el-icon><House /></el-icon>
-          <template #title>场地管理</template>
-        </el-menu-item>
         <el-menu-item index="/admin/events">
-          <el-icon><Calendar /></el-icon>
+          <el-icon><List /></el-icon>
           <template #title>活动管理</template>
+        </el-menu-item>
+        <el-menu-item index="/admin/orders">
+          <el-icon><ShoppingCart /></el-icon>
+          <template #title>订单管理</template>
         </el-menu-item>
       </el-menu>
     </div>
@@ -73,6 +73,17 @@
 import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
+import { 
+  DataBoard, 
+  User, 
+  List, 
+  ShoppingCart,
+  Expand, 
+  Fold, 
+  Moon, 
+  Sunny, 
+  ArrowDown 
+} from '@element-plus/icons-vue'
 
 const router = useRouter()
 const route = useRoute()

@@ -31,6 +31,12 @@ const routes = [
         name: 'AdminEvents',
         component: () => import('../pages/admin/Events.vue'),
         meta: { requiresAuth: true, role: 'admin', title: '活动管理' }
+      },
+      {
+        path: 'orders',
+        name: 'AdminOrders',
+        component: () => import('../pages/admin/Orders.vue'),
+        meta: { requiresAuth: true, role: 'admin', title: '订单管理' }
       }
     ]
   },

@@ -24,6 +24,10 @@ export default defineConfig({
       '/services': {
         target: 'http://localhost:8080',
         changeOrigin: true
+      },
+      '/orders': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
       }
     }
   },

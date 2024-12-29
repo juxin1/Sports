@@ -400,6 +400,80 @@ const handleSubmit = async () => {
 
 // 修改对话框标题计算属性
 const dialogTitle = computed(() => dialogType.value === 'add' ? '添加项目' : '编辑项目')
+
+// 处理单个删除
+const handleDelete = (row) => {
+  ElMessageBox.confirm(
+    `确定要删除项目 "${row.name}" 吗？`,
+    '警告',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      const response = await deleteEvents([row.sprots_id])
+      
+      if (response.data.code === 1) {
+        ElMessage.success('删除成功')
+        // 如果当前页只有一条数据，且不是第一页，则跳转到上一页
+        if (tableData.value.length === 1 && currentPage.value > 1) {
+          currentPage.value--
+        }
+        fetchEvents() // 刷新列表
+      } else {
+        ElMessage.error(response.data.msg || '删除失败')
+      }
+    } catch (error) {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
+    }
+  }).catch(() => {
+    // 取消删除，不做任何操作
+  })
+}
+
+// 处理批量删除
+const handleBatchDelete = () => {
+  if (selectedEvents.value.length === 0) {
+    ElMessage.warning('请选择要删除的项目')
+    return
+  }
+
+  ElMessageBox.confirm(
+    `确定要删除选中的 ${selectedEvents.value.length} 个项目吗？`,
+    '警告',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      // 提取选中项目的ID数组
+      const ids = selectedEvents.value.map(item => item.sprots_id)
+      const response = await deleteEvents(ids)
+      
+      if (response.data.code === 1) {
+        ElMessage.success('批量删除成功')
+        selectedEvents.value = [] // 清空选中
+        // 如果删除后当前页没有数据，且不是第一页，则跳转到上一页
+        if (tableData.value.length === ids.length && currentPage.value > 1) {
+          currentPage.value--
+        }
+        fetchEvents() // 刷新列表
+      } else {
+        ElMessage.error(response.data.msg || '批量删除失败')
+      }
+    } catch (error) {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败')
+    }
+  }).catch(() => {
+    // 取消删除，不做任何操作
+  })
+}
 </script>
 
 <style lang="scss" scoped>

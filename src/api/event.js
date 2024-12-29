@@ -46,14 +46,18 @@ export const updateEvent = (sprotsId, data) => {
   })
 }
 
-// 删除运动项目
+// 删除运动项目（支持单个和批量删除）
 export const deleteEvents = (ids) => {
+  // 确保 ids 始终是数组
   const idList = Array.isArray(ids) ? ids : [ids]
   return request({
     url: baseURL,
     method: 'delete',
     params: {
-      ids: idList.join(',')
+      ids: idList // 直接传递数组，让 axios 处理参数序列化
+    },
+    paramsSerializer: {
+      indexes: null // 数组参数序列化时不带索引
     }
   })
 }

@@ -34,4 +34,14 @@ export const adminLogin = (data) => {
       password: data.password
     }
   })
+}
+
+// 获取所有统计数量
+export const getAllCounts = () => {
+  return request({
+    url: '/count',
+    method: 'get'
+  }).then(response => {
+    return response.data
+  })
 } 

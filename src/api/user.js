@@ -95,4 +95,5 @@ export const register = (userData) => {
   }).then(response => {
     return response.data
   })
-} 
+}
+

@@ -1,7 +1,7 @@
 <template>
   <div class="admin-dashboard">
     <div class="stats-grid">
-      <el-card v-for="stat in stats" :key="stat.title" class="stat-card">
+      <el-card v-for="(stat, index) in stats" :key="index" class="stat-card">
         <div class="stat-content">
           <el-icon :size="32" :color="stat.color">
             <component :is="stat.icon" />
@@ -20,9 +20,9 @@
           <div class="card-header">
             <h3>场地使用统计</h3>
             <el-radio-group v-model="timeRange" size="small">
-              <el-radio-button label="week">本周</el-radio-button>
-              <el-radio-button label="month">本月</el-radio-button>
-              <el-radio-button label="year">本年</el-radio-button>
+              <el-radio-button :value="'week'">本周</el-radio-button>
+              <el-radio-button :value="'month'">本月</el-radio-button>
+              <el-radio-button :value="'year'">本年</el-radio-button>
             </el-radio-group>
           </div>
         </template>
@@ -60,36 +60,59 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { getAllCounts } from '@/api/admin'
 
 const timeRange = ref('week')
 
-const stats = [
+const stats = ref([
   {
     title: '总用户数',
-    value: '1,234',
+    value: 0,
     icon: 'User',
     color: '#409EFF'
   },
   {
     title: '今日预约',
-    value: '56',
+    value: 0,
     icon: 'Calendar',
     color: '#67C23A'
   },
   {
-    title: '场地数量',
-    value: '12',
-    icon: 'House',
+    title: '总订单数',
+    value: 0,
+    icon: 'ShoppingCart',
     color: '#E6A23C'
   },
   {
-    title: '活动数量',
-    value: '8',
+    title: '总活动数',
+    value: 0,
     icon: 'Trophy',
     color: '#F56C6C'
   }
-]
+])
+
+const fetchAllCounts = async () => {
+  try {
+    const response = await getAllCounts()
+    console.log('统计数据响应:', response)
+    if (response && response.code === 1) {
+      const [userCount, eventCount, orderCount] = response.data
+      
+      stats.value[0].value = userCount
+      stats.value[2].value = orderCount
+      stats.value[3].value = eventCount
+      
+      console.log('更新后的统计数据:', stats.value)
+    }
+  } catch (error) {
+    console.error('获取统计数据失败:', error)
+  }
+}
+
+onMounted(() => {
+  fetchAllCounts()
+})
 
 const recentBookings = [
   {

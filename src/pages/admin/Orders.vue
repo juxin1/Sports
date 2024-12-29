@@ -33,6 +33,16 @@
           </el-select>
         </div>
       </div>
+      <div class="header-right">
+        <el-button 
+          type="danger" 
+          @click="handleBatchDelete" 
+          :disabled="!selectedRows.length"
+        >
+          <el-icon><Delete /></el-icon>
+          批量删除
+        </el-button>
+      </div>
     </div>
 
     <el-card class="orders-table">
@@ -42,7 +52,13 @@
         :stripe="true"
         :border="true"
         v-loading="loading"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column
+          type="selection"
+          width="55"
+          align="center"
+        />
         <el-table-column prop="order_id" label="订单号" width="100" align="center" />
         <el-table-column label="用户信息" min-width="180">
           <template #default="{ row }">
@@ -128,6 +144,30 @@
         :rules="rules"
         label-width="100px"
       >
+        <!-- 只读信息展示 -->
+        <el-form-item label="订单号">
+          <el-input v-model="orderForm.order_id" disabled />
+        </el-form-item>
+        <el-form-item label="用户信息">
+          <el-input :value="`${orderForm.username} (ID: ${orderForm.user_id})`" disabled />
+        </el-form-item>
+        <el-form-item label="活动信息">
+          <el-input :value="`${orderForm.name} (ID: ${orderForm.sprots_id})`" disabled />
+        </el-form-item>
+        <el-form-item label="数量">
+          <el-input v-model="orderForm.quantity" disabled />
+        </el-form-item>
+        
+        <!-- 可编辑字段 -->
+        <el-form-item label="总价" prop="total_price">
+          <el-input-number
+            v-model="orderForm.total_price"
+            :precision="2"
+            :step="0.01"
+            :min="0"
+            style="width: 100%"
+          />
+        </el-form-item>
         <el-form-item label="订单状态" prop="status">
           <el-select v-model="orderForm.status" style="width: 100%">
             <el-option 
@@ -151,7 +191,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { Edit, Delete } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAllOrders } from '@/api/order'
+import { getAllOrders, deleteOrders, updateOrder } from '@/api/order'
 
 // 状态选项
 const statusOptions = [
@@ -186,11 +226,18 @@ const currentPage = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const dialogVisible = ref(false)
+const dialogType = ref('edit')
 const formRef = ref(null)
 
 // 表单数据
 const orderForm = ref({
   order_id: '',
+  user_id: '',
+  username: '',
+  sprots_id: '',
+  name: '',
+  quantity: 0,
+  total_price: 0,
   status: '1'
 })
 
@@ -286,6 +333,131 @@ watch([usernameQuery, searchQuery, statusFilter], () => {
 onMounted(() => {
   fetchOrders()
 })
+
+// 添加选中行数组
+const selectedRows = ref([])
+
+// 添加表格选择变化处理
+const handleSelectionChange = (selection) => {
+  selectedRows.value = selection
+}
+
+// 修改单个删除方法
+const handleDelete = (row) => {
+  ElMessageBox.confirm(
+    `确定要删除订单 ${row.order_id} 吗？`,
+    '警告',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      const response = await deleteOrders([row.order_id])
+      
+      if (response.code === 1) {
+        ElMessage.success('删除成功')
+        fetchOrders()
+      } else {
+        ElMessage.error(response.msg || '删除失败')
+      }
+    } catch (error) {
+      console.error('删除失败:', error)
+      ElMessage.error('删除失败')
+    }
+  })
+}
+
+// 添加批量删除方法
+const handleBatchDelete = () => {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请选择要删除的订单')
+    return
+  }
+
+  ElMessageBox.confirm(
+    `确定要删除选中的 ${selectedRows.value.length} 个订单吗？`,
+    '警告',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      const ids = selectedRows.value.map(row => row.order_id)
+      const response = await deleteOrders(ids)
+      
+      if (response.code === 1) {
+        ElMessage.success('批量删除成功')
+        selectedRows.value = [] // 清空选中
+        fetchOrders()
+      } else {
+        ElMessage.error(response.msg || '批量删除失败')
+      }
+    } catch (error) {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败')
+    }
+  })
+}
+
+// 修改表单验证规则
+const rules = {
+  total_price: [
+    { required: true, message: '请输入总价', trigger: 'blur' }
+  ],
+  status: [
+    { required: true, message: '请选择订单状态', trigger: 'change' }
+  ]
+}
+
+// 修改编辑方法
+const handleEdit = (row) => {
+  dialogType.value = 'edit'
+  orderForm.value = {
+    order_id: row.order_id,
+    user_id: row.user_id,
+    username: row.username,
+    sprots_id: row.sprots_id,
+    name: row.name,
+    quantity: row.quantity,
+    total_price: Number(row.total_price),
+    status: row.status
+  }
+  dialogVisible.value = true
+}
+
+// 修改提交方法
+const handleSubmit = async () => {
+  if (!formRef.value) return
+  
+  try {
+    await formRef.value.validate(async (valid) => {
+      if (valid) {
+        const response = await updateOrder(
+          orderForm.value.order_id,
+          {
+            total_price: orderForm.value.total_price,
+            status: orderForm.value.status
+          }
+        )
+        
+        if (response.code === 1) {
+          ElMessage.success('编辑成功')
+          dialogVisible.value = false
+          fetchOrders() // 刷新列表
+        } else {
+          ElMessage.error(response.msg || '编辑失败')
+        }
+      }
+    })
+  } catch (error) {
+    console.error('提交失败:', error)
+    ElMessage.error('提交失败')
+  }
+}
 </script>
 
 <style lang="scss" scoped>

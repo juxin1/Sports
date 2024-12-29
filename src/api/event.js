@@ -1,47 +1,39 @@
 import request from '@/utils/request'
 
-// 获取所有活动
+const baseURL = '/services'
+
+// 获取所有运动项目
 export const getAllEvents = (params) => {
   return request({
-    url: '/services',
+    url: baseURL,
     method: 'get',
     params: {
-      page: params.page,
-      size: params.size,
+      page: params.page || 1,
+      size: params.size || 10,
       name: params.name || '',
-      status: params.status ? params.status.toString() : ''
+      status: params.status || ''
     }
   })
 }
 
-// 添加更新活动方法
-export const updateEvent = (sprotsId, data) => {
+// 更新运动项目
+export const updateEvent = (eventId, data) => {
   return request({
-    url: `/services/${sprotsId}`,
+    url: `${baseURL}/${eventId}`,
     method: 'put',
-    data: {
-      name: data.name,
-      description: data.description,
-      price: data.price,
-      duration: data.duration,
-      status: data.status.toString()  // 确保状态为字符串
-    }
+    data
   })
 }
 
-// 修改删除方法
+// 删除运动项目
 export const deleteEvents = (ids) => {
-  // 将数组转换为逗号分隔的字符串
-  const idsString = Array.isArray(ids) ? ids.join(',') : ids;
-  
+  // 确保 ids 是数组并转换为字符串
+  const idList = Array.isArray(ids) ? ids : [ids]
   return request({
-    url: '/services',
+    url: baseURL,
     method: 'delete',
     params: {
-      ids: idsString  // 传递逗号分隔的字符串
-    },
-    paramsSerializer: {
-      indexes: null // 确保数组参数正确序列化
+      ids: idList.join(',')
     }
   })
 }

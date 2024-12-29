@@ -28,6 +28,11 @@ export default defineConfig({
       '/orders': {
         target: 'http://localhost:8080',
         changeOrigin: true
+      },
+      '/api': {
+        target: 'http://your-backend-url',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
   },

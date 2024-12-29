@@ -1,4 +1,6 @@
 import axios from 'axios'
+import { ElMessage } from 'element-plus'
+import router from '@/router'
 
 // 创建axios实例
 const request = axios.create({
@@ -13,6 +15,10 @@ const request = axios.create({
 // 请求拦截器
 request.interceptors.request.use(
   config => {
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers['token'] = token
+    }
     return config
   },
   error => {
@@ -26,6 +32,18 @@ request.interceptors.response.use(
     return response
   },
   error => {
+    if (error.response) {
+      switch (error.response.status) {
+        case 401: // token 过期或无效
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          router.push('/login')
+          break
+        case 403: // 权限不足
+          ElMessage.error('权限不足')
+          break
+      }
+    }
     console.error('请求错误:', error)
     return Promise.reject(error)
   }

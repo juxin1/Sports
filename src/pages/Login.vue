@@ -211,6 +211,7 @@ import {
 import { ElMessage } from 'element-plus'
 import { login, register } from '@/api/user'
 import { adminLogin } from '../api/admin'
+import { logout } from '@/utils/auth'
 
 const router = useRouter()
 const loading = ref(false)
@@ -257,15 +258,33 @@ const handleLogin = async () => {
       password: loginForm.password
     }
 
-    const response = await loginApi(loginData)
-    const result = response.data
+    console.log('发送登录请求:', {
+      type: loginForm.userType,
+      data: loginData
+    })
 
-    if (result.code === 1) {
-      const userData = result.data
+    const response = await loginApi(loginData)
+    const responseData = response.data
+    console.log('登录响应原始数据:', responseData)
+
+    if (responseData.code === 1) {
+      console.log('登录成功，解析数据:', responseData.data)
+      const { token, user_id, username } = responseData.data
+      
+      // 存储 token 和用户信息
+      localStorage.setItem('token', token)
       localStorage.setItem('user', JSON.stringify({
-        ...userData,
+        user_id,
+        username,
         role: loginForm.userType
       }))
+      
+      console.log('存储的token:', token)
+      console.log('存储的用户信息:', {
+        user_id,
+        username,
+        role: loginForm.userType
+      })
       
       ElMessage.success('登录成功')
       
@@ -275,7 +294,8 @@ const handleLogin = async () => {
         router.push('/user/home')
       }
     } else {
-      ElMessage.error(result.msg || '登录失败')
+      console.error('登录失败:', responseData.msg)
+      ElMessage.error(responseData.msg || '登录失败')
     }
   } catch (error) {
     console.error('登录错误:', error)
@@ -367,6 +387,10 @@ const handleRegister = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const handleLogout = () => {
+  logout()
 }
 </script>
 

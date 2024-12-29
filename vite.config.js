@@ -20,6 +20,10 @@ export default defineConfig({
       '/admins': {
         target: 'http://localhost:8080',
         changeOrigin: true
+      },
+      '/services': {
+        target: 'http://localhost:8080',
+        changeOrigin: true
       }
     }
   },

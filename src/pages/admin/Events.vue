@@ -177,10 +177,10 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted } from 'vue'
+import { ref, watch, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Edit, Delete, Plus } from '@element-plus/icons-vue'
-import { getAllEvents, deleteEvents, addEvent } from '@/api/event'
+import { getAllEvents, deleteEvents, addEvent, updateEvent } from '@/api/event'
 
 // 状态选项
 const statusOptions = [
@@ -336,7 +336,22 @@ const handleAdd = () => {
   dialogVisible.value = true
 }
 
-// 处理表单提交
+// 处理编辑按钮点击
+const handleEdit = (row) => {
+  dialogType.value = 'edit'
+  // 复制数据到表单
+  eventForm.value = {
+    sprots_id: row.sprots_id,
+    name: row.name,
+    description: row.description,
+    price: Number(row.price),
+    duration: Number(row.duration),
+    status: row.status
+  }
+  dialogVisible.value = true
+}
+
+// 修改表单提交方法，添加编辑功能
 const handleSubmit = async () => {
   if (!formRef.value) return
   
@@ -359,12 +374,32 @@ const handleSubmit = async () => {
       } else {
         ElMessage.error(response.data.msg || '添加失败')
       }
+    } else {
+      // 处理编辑提交
+      const response = await updateEvent(eventForm.value.sprots_id, {
+        name: eventForm.value.name,
+        description: eventForm.value.description,
+        price: Number(eventForm.value.price),
+        duration: Number(eventForm.value.duration),
+        status: eventForm.value.status
+      })
+      
+      if (response.data.code === 1) {
+        ElMessage.success('修改成功')
+        dialogVisible.value = false
+        fetchEvents() // 刷新列表
+      } else {
+        ElMessage.error(response.data.msg || '修改失败')
+      }
     }
   } catch (error) {
     console.error('表单提交失败:', error)
     ElMessage.error('表单验证失败，请检查输入')
   }
 }
+
+// 修改对话框标题计算属性
+const dialogTitle = computed(() => dialogType.value === 'add' ? '添加项目' : '编辑项目')
 </script>
 
 <style lang="scss" scoped>

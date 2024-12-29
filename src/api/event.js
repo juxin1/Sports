@@ -32,11 +32,17 @@ export const addEvent = (data) => {
 }
 
 // 更新运动项目
-export const updateEvent = (eventId, data) => {
+export const updateEvent = (sprotsId, data) => {
   return request({
-    url: `${baseURL}/${eventId}`,
+    url: `${baseURL}/${sprotsId}`,
     method: 'put',
-    data
+    data: {
+      name: data.name,
+      description: data.description,
+      price: Number(data.price),
+      duration: Number(data.duration),
+      status: data.status
+    }
   })
 }
 

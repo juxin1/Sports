@@ -27,9 +27,19 @@
           </el-select>
         </div>
       </div>
-      <el-button type="primary" @click="handleAdd">
-        <el-icon><Plus /></el-icon>添加活动
-      </el-button>
+      <div class="header-right">
+        <el-button 
+          type="danger" 
+          @click="handleBatchDelete" 
+          :disabled="!selectedRows.length"
+        >
+          <el-icon><Delete /></el-icon>
+          批量删除
+        </el-button>
+        <el-button type="primary" @click="handleAdd">
+          <el-icon><Plus /></el-icon>添加活动
+        </el-button>
+      </div>
     </div>
 
     <el-card class="events-table">
@@ -39,7 +49,13 @@
         :stripe="true"
         :border="true"
         v-loading="loading"
+        @selection-change="handleSelectionChange"
       >
+        <el-table-column
+          type="selection"
+          width="55"
+          align="center"
+        />
         <el-table-column prop="sprots_id" label="ID" width="80" align="center" />
         <el-table-column prop="name" label="活动名称" min-width="150" />
         <el-table-column prop="description" label="活动描述" min-width="200">
@@ -161,8 +177,8 @@
         <el-form-item label="状态" prop="status">
           <el-switch
             v-model="eventForm.status"
-            :active-value="1"
-            :inactive-value="0"
+            :active-value="'1'"
+            :inactive-value="'0'"
             active-text="启用"
             inactive-text="禁用"
           />
@@ -180,7 +196,7 @@
 import { ref, computed, watch, onMounted } from 'vue'
 import { Edit, Delete, Plus } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAllEvents } from '@/api/event'
+import { getAllEvents, updateEvent, deleteEvents } from '@/api/event'
 
 // 状态选项
 const statusOptions = [
@@ -227,6 +243,14 @@ const eventForm = ref({
 
 // 表格数据
 const events = ref([])
+
+// 添加选中行数组
+const selectedRows = ref([])
+
+// 添加表格选择变化处理
+const handleSelectionChange = (selection) => {
+  selectedRows.value = selection
+}
 
 // 获取活动列表
 const fetchEvents = async () => {
@@ -299,7 +323,7 @@ const handleEdit = (row) => {
     description: row.description,
     price: Number(row.price),
     duration: Number(row.duration),
-    status: Number(row.status)
+    status: row.status
   }
   dialogVisible.value = true
 }
@@ -316,11 +340,51 @@ const handleDelete = (row) => {
     }
   ).then(async () => {
     try {
-      // TODO: 调用删除API
-      ElMessage.success('删除成功')
-      fetchEvents()
+      const response = await deleteEvents([row.sprots_id])
+      
+      if (response.code === 1) {
+        ElMessage.success('删除成功')
+        fetchEvents()
+      } else {
+        ElMessage.error(response.msg || '删除失败')
+      }
     } catch (error) {
+      console.error('删除失败:', error)
       ElMessage.error('删除失败')
+    }
+  })
+}
+
+// 添加批量删除方法
+const handleBatchDelete = () => {
+  if (selectedRows.value.length === 0) {
+    ElMessage.warning('请选择要删除的项目')
+    return
+  }
+
+  ElMessageBox.confirm(
+    `确定要删除选中的 ${selectedRows.value.length} 个项目吗？`,
+    '警告',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      const ids = selectedRows.value.map(row => row.sprots_id)
+      const response = await deleteEvents(ids)
+      
+      if (response.code === 1) {
+        ElMessage.success('批量删除成功')
+        selectedRows.value = [] // 清空选中
+        fetchEvents()
+      } else {
+        ElMessage.error(response.msg || '批量删除失败')
+      }
+    } catch (error) {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败')
     }
   })
 }
@@ -333,17 +397,27 @@ const handleSubmit = async () => {
     await formRef.value.validate(async (valid) => {
       if (valid) {
         if (dialogType.value === 'edit') {
-          // TODO: 调用编辑API
-          ElMessage.success('编辑成功')
+          // 调用更新API
+          const response = await updateEvent(
+            eventForm.value.sprots_id,
+            eventForm.value
+          )
+          
+          if (response.code === 1) {
+            ElMessage.success('编辑成功')
+            dialogVisible.value = false
+            fetchEvents() // 刷新列表
+          } else {
+            ElMessage.error(response.msg || '编辑失败')
+          }
         } else {
           // TODO: 调用添加API
           ElMessage.success('添加成功')
         }
-        dialogVisible.value = false
-        fetchEvents()
       }
     })
   } catch (error) {
+    console.error('提交失败:', error)
     ElMessage.error('提交失败')
   }
 }
